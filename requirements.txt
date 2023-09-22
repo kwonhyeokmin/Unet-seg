@@ -4,3 +4,6 @@ opencv-python
 albumentations
 matplotlib
 segmentation_models_pytorch
+pydicom
+wandb
+easydict

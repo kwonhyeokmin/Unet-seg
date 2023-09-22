@@ -3,6 +3,8 @@ import os.path as osp
 import argparse
 from common.utils.dir_utils import make_folder
 import albumentations as A
+import yaml
+from easydict import EasyDict as edict
 
 
 class Config:
@@ -15,18 +17,15 @@ class Config:
     vis_dir = osp.join(output_dir, 'vis')
 
     batch_size = 16
-    num_thread = 2
+    num_thread = 16
     CROP_IMG_HEIGHT = 224
     CROP_IMG_WIDTH = 224
-
-    lr = 2e-3
-    num_epochs = 140
-    wd = 1e-6
 
     # augmentation
     data_transforms = {
         "train": A.Compose([
             A.CenterCrop(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
+            # A.Resize(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.05, rotate_limit=10, p=0.5),
@@ -37,16 +36,23 @@ class Config:
             ], p=0.25),
             A.CoarseDropout(max_holes=8, max_height=CROP_IMG_HEIGHT // 20, max_width=CROP_IMG_WIDTH // 20,
                             min_holes=5, fill_value=0, mask_fill_value=0, p=0.5),
-        ], p=1.0),
+        ]),
 
         "valid": A.Compose([
+            # A.Resize(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
             A.CenterCrop(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
-        ], p=1.0)
+        ])
     }
+
 
 cfg = Config()
 
-# Make folder
-make_folder(cfg.output_dir)
-make_folder(cfg.model_dir)
-make_folder(cfg.vis_dir)
+def update_config(config_file):
+    # Make folder
+    make_folder(cfg.output_dir)
+    make_folder(cfg.model_dir)
+    make_folder(cfg.vis_dir)
+
+    with open(config_file) as f:
+        updated_config = edict(yaml.load(f, Loader=yaml.FullLoader))
+    cfg.hyp = updated_config

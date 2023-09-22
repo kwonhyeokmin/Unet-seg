@@ -1,0 +1,8 @@
+PROJECT_NAME: 'unet_basic-nia'
+SEED_VALUE: -1
+TRAINING:
+  EPOCHS: 300
+OPTIMIZER:
+  TYPE: 'adam'
+  LR: 1e-4
+  WD: 1e-6

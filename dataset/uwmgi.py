@@ -8,10 +8,10 @@ class UWMGIDataset:
     def __init__(self):
         self.ann_path = osp.join(constants.DATASET_FOLDER, 'train_preprocessed.csv')
         self.cat_name = ['large_bowel', 'small_bowel', 'stomach']
+        self.rle = True
         self.data = self.load_data()
 
     def load_data(self):
-        print(f'Load data that annotation file path is {self.ann_path} ...')
         data = []
 
         db = pd.read_csv(self.ann_path)
