@@ -46,19 +46,19 @@ if __name__ == '__main__':
     # 1. Load datasets
     # ********************
     if args.dataset == 'uwgi':
-        dataset = UWMGIDataset()
+        test_dataset = UWMGIDataset()
     elif args.dataset == 'nia':
-        dataset = NIADataset()
+        test_dataset = NIADataset(data_split='test')
     else:
         raise ValueError(f'Dataset name {args.dataset} is not supported yet.')
-    dataset_loader = CTDataset(dataset, is_test=False, transforms=cfg.data_transforms['valid'])
+    dataset_loader = CTDataset(test_dataset, transforms=cfg.data_transforms['valid'])
     data_generator = DataLoader(dataset=dataset_loader, batch_size=cfg.batch_size, shuffle=False,
                                 num_workers=cfg.num_thread, pin_memory=True)
     # ********************
     # 2. Load model
     # ********************
     # load model
-    model = UNet(in_channels=3, n_classes=len(dataset.cat_name), n_channels=48).to(device)
+    model = UNet(in_channels=3, n_classes=len(test_dataset.cat_name), n_channels=48).to(device)
     model.load_state_dict(torch.load(args.checkpoint))
     model.eval()
 
@@ -67,13 +67,14 @@ if __name__ == '__main__':
     # ****************
     # Convert from plt 0-1 RGBA colors to 0-255 BGR colors for opencv.
     cmap = plt.get_cmap('rainbow')
-    colors = [cmap(i) for i in np.linspace(0, 1, len(dataset.cat_name) + 2)]
+    colors = [cmap(i) for i in np.linspace(0, 1, len(test_dataset.cat_name) + 2)]
     colors = [(c[2] * 255, c[1] * 255, c[0] * 255) for c in colors]
 
     pbar = tqdm(enumerate(data_generator), total=len(data_generator), desc='Eval ')
     for step, (images, masks, images_bgr) in pbar:
         images = images.to(device, dtype=torch.float)
         masks = masks.to(device, dtype=torch.float)
+        B = images.shape[0]
 
         y_pred = model(images)
 
@@ -96,19 +97,21 @@ if __name__ == '__main__':
                                           image[:, :, c])
             return image
 
-        gt_img = copy.deepcopy(images_bgr[0]).cpu().numpy()
-        vis_gt_msk = masks[0].detach().cpu().numpy()
-        vis_gt_result = (vis_gt_msk > 0.9).astype(np.float32) * 1.0
-        for cat, gt_mask in enumerate(vis_gt_result):
-            gt_img = apply_mask(gt_img, gt_mask, color=colors[cat])
-        cv2.imwrite(f'{cfg.vis_dir}/{step}_gt.jpg', gt_img)
+        if step % 10:
+            for b in range(B):
+                gt_img = copy.deepcopy(images_bgr[b]).cpu().numpy()
+                vis_gt_msk = masks[b].detach().cpu().numpy()
+                vis_gt_result = (vis_gt_msk > 0.9).astype(np.float32) * 1.0
+                for cat, gt_mask in enumerate(vis_gt_result):
+                    gt_img = apply_mask(gt_img, gt_mask, color=colors[cat])
+                cv2.imwrite(f'{cfg.vis_dir}/{step}_{b}_gt.jpg', gt_img)
 
-        pred_img = copy.deepcopy(images_bgr[0]).cpu().numpy()
-        vis_pred_msk = y_pred[0].detach().cpu().numpy()
-        vis_pred_result = (vis_pred_msk > 0.9).astype(np.float32) * 1.0
-        for cat, pred_mask in enumerate(vis_pred_result):
-            pred_img = apply_mask(pred_img, pred_mask, color=colors[cat])
-        cv2.imwrite(f'{cfg.vis_dir}/{step}_pred.jpg', pred_img)
+                pred_img = copy.deepcopy(images_bgr[b]).cpu().numpy()
+                vis_pred_msk = y_pred[b].detach().cpu().numpy()
+                vis_pred_result = (vis_pred_msk > 0.95).astype(np.float32) * 1.0
+                for cat, pred_mask in enumerate(vis_pred_result):
+                    pred_img = apply_mask(pred_img, pred_mask, color=colors[cat])
+                cv2.imwrite(f'{cfg.vis_dir}/{step}_{b}_pred.jpg', pred_img)
     # ****************
     # 3. Print result
     # ****************

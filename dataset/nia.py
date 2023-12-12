@@ -8,16 +8,28 @@ import pydicom
 
 
 class NIADataset:
-    def __init__(self):
-        self.ann_path = [x.replace(os.sep, '/') for x in
-                         glob(f'{constants.DATASET_FOLDER}/2.라벨링데이터/**/AXL/*.json', recursive=True)]
-        self.cat_name = ['Talus', 'Tibia', 'Fibula', 'MidFoot', 'Calcaneus',
-                         '1st Metararsal', '2st Metararsal', '3st Metararsal', '4st Metararsal', '5st Metararsal']
+    def __init__(self, data_split):
+        self.ann_path = []
+        self.ann_path += [x.replace(os.sep, '/') for x in
+                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/AD/*/AXL/*.json', recursive=True)]
+        self.ann_path += [x.replace(os.sep, '/') for x in
+                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/FD/*/AXL/*.json', recursive=True)]
+        self.ann_path += [x.replace(os.sep, '/') for x in
+                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/N/*/AXL/*.json', recursive=True)]
+
+        self.cat_name = ['Tibia', 'Fibula', 'Talus', 'Calcaneus', 'MidFoot',
+                         '1st Metatarsal', '2nd Metatarsal', '3rd Metatarsal', '4th Metatarsal', '5th Metatarsal']
         self.rle = False
         self.data = self.load_data()
 
+    def __len__(self):
+        return len(self.data)
+
     def load_data(self):
         data = []
+        cls_n = {}
+        for c in self.cat_name:
+            cls_n.update({c: 0})
         data_id = 0
 
         for ann_path in self.ann_path:
@@ -32,10 +44,13 @@ class NIADataset:
                 'width': w,
                 'anno': []
             }
+
             with open(ann_path) as fp:
                 db = json.load(fp)['ArrayOfannotation_info']
             _seg_str = ''
             for anno in db:
+                if 'polyline_list' not in anno.keys():
+                    continue
                 try:
                     polyline = anno['polyline_list'][0]
                     seg = [[x['Y'], x['X']] for x in polyline['pos_list']]
@@ -43,16 +58,30 @@ class NIADataset:
                         'category_id': self.cat_name.index(anno['preset_name']),
                         'segmentation': seg
                     }
+                    cls_n[anno['preset_name']] += 1
                     _ann['anno'].append(cat)
                 except KeyError as e:
                     print(f'Annotation file has invalid Key: {ann_path}')
+                    print(e)
                     continue
-            data.append(_ann)
-            data_id += 1
+                except ValueError as e:
+                    # print(e)
+                    # print(ann_path)
+                    continue
+
+            if len(_ann['anno']) > 0:
+                data.append(_ann)
+                data_id += 1
 
         print(f'End loading data. The number of data: {len(data)}')
+        print('**************************************************')
+        for k, v in cls_n.items():
+            print(f'{k}: {v}')
+        print('**************************************************')
         return data
 
 
 if __name__ == '__main__':
-    dataset = NIADataset()
+    train_dataset = NIADataset(data_split='train')
+    val_dataset = NIADataset(data_split='val')
+    test_dataset = NIADataset(data_split='test')

@@ -7,13 +7,19 @@ import torch
 from common.utils.etc_utils import rle_decode
 from torch.utils.data import Dataset
 import pydicom
+import random
+random.seed(0)
 
 
 class CTDataset(Dataset):
-    def __init__(self, db, is_test, transforms=None):
-        self.db = db.data
+    def __init__(self, db, transforms=None):
+        _data = copy.deepcopy(db.data)
+        random.shuffle(_data)
+        # self.db = _data[data_range[0]:data_range[1]]
+        self.db = _data
+        print(f'The number of data: {len(self.db)}')
+
         self.cat_name = db.cat_name
-        self.is_test = is_test
         self.transforms = transforms
         self.rle = db.rle
         self.color_space = 'HSV'
@@ -61,22 +67,22 @@ class CTDataset(Dataset):
         data = copy.deepcopy(self.db[index])
         extension = data['image_path'].split('.')[-1]
         img, img_bgr = self.load_img(data['image_path'], colorspace=self.color_space, extension=extension)
-        if not self.is_test:
-            mask = self.load_mask(data['anno'], data['height'], data['width'], self.rle)
-            if self.transforms:
-                transformed_data = self.transforms(image=img, mask=mask)
-                transformed_ori_data = self.transforms(image=img_bgr, mask=mask)
-                img = transformed_data['image']
-                mask = transformed_data['mask']
-                img_bgr = transformed_ori_data['image']
 
-            img = np.transpose(img, (2, 0, 1))
-            mask = np.transpose(mask, (2, 0, 1))
-            return torch.tensor(img), torch.tensor(mask), torch.tensor(img_bgr)
+        mask = self.load_mask(data['anno'], data['height'], data['width'], self.rle)
+        if self.transforms:
+            transformed_data = self.transforms(image=img, mask=mask)
+            transformed_ori_data = self.transforms(image=img_bgr, mask=mask)
+            img = transformed_data['image']
+            mask = transformed_data['mask']
+            img_bgr = transformed_ori_data['image']
 
-        else:
-            if self.transforms:
-                transformed_data = self.transforms(image=img)
-                img = transformed_data['image']
-            img = np.transpose(img, (2, 0, 1))
-            return torch.tensor(img)
+        img = np.transpose(img, (2, 0, 1))
+        mask = np.transpose(mask, (2, 0, 1))
+        return torch.tensor(img), torch.tensor(mask), torch.tensor(img_bgr)
+
+        # else:
+        #     if self.transforms:
+        #         transformed_data = self.transforms(image=img)
+        #         img = transformed_data['image']
+        #     img = np.transpose(img, (2, 0, 1))
+        #     return torch.tensor(img)
