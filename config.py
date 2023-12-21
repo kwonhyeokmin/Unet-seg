@@ -16,7 +16,7 @@ class Config:
     model_dir = osp.join(output_dir, 'model_dump')
     vis_dir = osp.join(output_dir, 'vis')
 
-    batch_size = 16
+    batch_size = 32
     num_thread = 16
     CROP_IMG_HEIGHT = 224
     CROP_IMG_WIDTH = 224
@@ -39,6 +39,11 @@ class Config:
         ]),
 
         "valid": A.Compose([
+            # A.Resize(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
+            A.CenterCrop(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
+        ]),
+
+        "test": A.Compose([
             # A.Resize(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
             A.CenterCrop(CROP_IMG_HEIGHT, CROP_IMG_WIDTH),
         ])

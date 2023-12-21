@@ -20,7 +20,9 @@ def make_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint', required=True, help='Path to model checkpoint for evaluate')
     parser.add_argument('--dataset', required=True, help='Dataset name', choices=['uwmgi', 'nia'])
-
+    parser.add_argument('--data_tag',
+                        help='data tag (AXL, COR, SAG)',
+                        required=True)
     args = parser.parse_args()
     return args
 
@@ -39,7 +41,7 @@ if __name__ == '__main__':
 
     # Select device (gpu | cpu)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    # device = torch.device('cpu')
+    tag = args.data_tag
     score = defaultdict(list)
 
     # ********************
@@ -48,10 +50,10 @@ if __name__ == '__main__':
     if args.dataset == 'uwgi':
         test_dataset = UWMGIDataset()
     elif args.dataset == 'nia':
-        test_dataset = NIADataset(data_split='test')
+        test_dataset = NIADataset(data_split='test', tag=tag)
     else:
         raise ValueError(f'Dataset name {args.dataset} is not supported yet.')
-    dataset_loader = CTDataset(test_dataset, transforms=cfg.data_transforms['valid'])
+    dataset_loader = CTDataset(test_dataset, transforms=cfg.data_transforms['test'])
     data_generator = DataLoader(dataset=dataset_loader, batch_size=cfg.batch_size, shuffle=False,
                                 num_workers=cfg.num_thread, pin_memory=True)
     # ********************

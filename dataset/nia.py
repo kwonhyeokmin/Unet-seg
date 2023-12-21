@@ -8,14 +8,10 @@ import pydicom
 
 
 class NIADataset:
-    def __init__(self, data_split):
+    def __init__(self, data_split, tag):
         self.ann_path = []
         self.ann_path += [x.replace(os.sep, '/') for x in
-                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/AD/*/AXL/*.json', recursive=True)]
-        self.ann_path += [x.replace(os.sep, '/') for x in
-                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/FD/*/AXL/*.json', recursive=True)]
-        self.ann_path += [x.replace(os.sep, '/') for x in
-                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/N/*/AXL/*.json', recursive=True)]
+                         glob(f'{constants.DATASET_FOLDER}/{data_split}/1.Datasets/2.라벨링데이터/**/{tag}/*.json', recursive=True)]
 
         self.cat_name = ['Tibia', 'Fibula', 'Talus', 'Calcaneus', 'MidFoot',
                          '1st Metatarsal', '2nd Metatarsal', '3rd Metatarsal', '4th Metatarsal', '5th Metatarsal']
@@ -82,6 +78,6 @@ class NIADataset:
 
 
 if __name__ == '__main__':
-    train_dataset = NIADataset(data_split='train')
-    val_dataset = NIADataset(data_split='val')
-    test_dataset = NIADataset(data_split='test')
+    train_dataset = NIADataset(data_split='train', tag='COR')
+    val_dataset = NIADataset(data_split='val', tag='COR')
+    test_dataset = NIADataset(data_split='test', tag='COR')
