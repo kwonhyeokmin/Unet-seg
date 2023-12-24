@@ -205,6 +205,6 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), file_path)
 
     # model save
-    file_path = osp.join(cfg.model_dir, f'snapshot_{cfg.hyp.TRAINING.EPOCHS}.pt')
+    file_path = osp.join(cfg.model_dir, f'snapshot_{tag}_{cfg.hyp.TRAINING.EPOCHS}.pt')
     torch.save(model.state_dict(), file_path)
     print('End training')
