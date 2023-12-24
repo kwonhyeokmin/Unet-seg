@@ -57,6 +57,6 @@ python3 train.py --dataset [DATASET_NAME] --cfg [CONFIG_FILE_PATH] --gpus [GPU_I
 
 ### Evaluate
 ```shell
-# example: python3 eval.py --checkpoint 
-python3 eval.py --checkpoint [MODEL_FILE_PATH] --dataset [DATASET_NAME] --cfg [CONFIG_FILE_PATH] --data_tag [AXL or COR or SAG]
+# example: python3 eval.py --checkpoint output/model_dump/snapshot_AXL_150.pt --dataset nia --data_tag AXL
+python3 eval.py --checkpoint [MODEL_FILE_PATH] --dataset [DATASET_NAME] --data_tag [AXL or COR or SAG]
 ```
