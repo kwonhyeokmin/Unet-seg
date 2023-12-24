@@ -1,7 +1,7 @@
 PROJECT_NAME: 'unet_basic-nia'
 SEED_VALUE: -1
 TRAINING:
-  EPOCHS: 150
+  EPOCHS: 100
 OPTIMIZER:
   TYPE: 'adam'
   LR: 1e-4
