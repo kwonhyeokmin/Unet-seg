@@ -13,7 +13,7 @@ random.seed(0)
 
 def make_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_type', required=True, help='Image type for sampling (AXL, SAG, COR)', choices=['AXL', 'SAG', 'COR'])
+    parser.add_argument('--data_tag', required=True, help='Image type for sampling (AXL, SAG, COR)', choices=['AXL', 'SAG', 'COR'])
     args = parser.parse_args()
     return args
 
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Directory setting
     DATA_ROOT = '/workspace/data/segmentation/ori/1.Datasets'
     DES_ROOT = '/workspace/data/segmentation/subset'
-    tag = args.data_type
+    tag = args.data_tag
     json_paths = glob(f'{DATA_ROOT}/2.라벨링데이터/**/{tag}/*.json', recursive=True)
     data_ratios = [0.6, 0.2, 0.2]
 

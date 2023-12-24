@@ -45,7 +45,7 @@ python3 tools data_sampling_segmentation.py
 ```
 #### Data split for making train, validation, test data
 ```shell
-python3 data_split_segmentation.py
+python3 data_split_segmentation.py --data_tag [AXL or COR or SAG]
 ```
 
 ### Train
