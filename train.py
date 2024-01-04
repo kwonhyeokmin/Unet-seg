@@ -64,6 +64,8 @@ if __name__ == '__main__':
     world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     cuda = device.type != 'cpu'
+    multi_gpu = False
+
     if args.local_rank != -1:
         assert torch.cuda.device_count() > args.local_rank
         torch.cuda.set_device(args.local_rank)
@@ -117,9 +119,11 @@ if __name__ == '__main__':
     # DP mode
     if cuda and global_rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
+        multi_gpu = True
     # DDP mode
     if cuda and global_rank != -1:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
+        multi_gpu = True
 
     optimizer = optim.Adam(model.parameters(),
                            lr=float(cfg.hyp.OPTIMIZER.LR),
@@ -140,7 +144,7 @@ if __name__ == '__main__':
         val_avg_loss = 0.0
         score = defaultdict(list)
 
-        for step, (images, masks, _) in pbar:
+        for step, (images, masks, _, _) in pbar:
             B = images.shape[0]
             images = images.to(device, dtype=torch.float)
             masks = masks.to(device, dtype=torch.float)
@@ -202,7 +206,10 @@ if __name__ == '__main__':
         # model save
         if (epoch+1) % 10 == 0:
             file_path = osp.join(cfg.model_dir, f'snapshot_{tag}_{epoch}.pt')
-            torch.save(model.state_dict(), file_path)
+            if multi_gpu:
+                torch.save(model.module.state_dict(), file_path)
+            else:
+                torch.save(model.state_dict(), file_path)
 
     # model save
     file_path = osp.join(cfg.model_dir, f'snapshot_{tag}_{cfg.hyp.TRAINING.EPOCHS}.pt')

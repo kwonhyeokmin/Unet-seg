@@ -13,8 +13,8 @@ from tqdm import tqdm
 import argparse
 import matplotlib.pyplot as plt
 import copy
-
-
+from datetime import datetime
+from sklearn.metrics import precision_recall_curve
 
 def make_args():
     parser = argparse.ArgumentParser()
@@ -23,6 +23,9 @@ def make_args():
     parser.add_argument('--data_tag',
                         help='data tag (AXL, COR, SAG)',
                         required=True)
+    parser.add_argument('--is_vis',
+                        help='True/False of visualization. If you store option, it means true',
+                        action='store_true')
     args = parser.parse_args()
     return args
 
@@ -36,7 +39,22 @@ def iou_coef(y_true, y_pred, thr=0.8, dim=(2,3), epsilon=0.001):
     return iou
 
 
+def apply_mask(image, mask, color, alpha=0.5):
+    """Apply the given mask to the image.
+    """
+    for c in range(3):
+        image[:, :, c] = np.where(mask == 1,
+                                  image[:, :, c] *
+                                  (1 - alpha) + alpha * color[c],
+                                  image[:, :, c])
+    return image
+
+
 if __name__ == '__main__':
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    print('Start evaluation. ', dt_string)
+
     args = make_args()
 
     # Select device (gpu | cpu)
@@ -60,8 +78,10 @@ if __name__ == '__main__':
     # 2. Load model
     # ********************
     # load model
-    model = UNet(in_channels=3, n_classes=len(test_dataset.cat_name), n_channels=48).to(device)
-    model.load_state_dict(torch.load(args.checkpoint))
+    n_cls = len(test_dataset.cat_name)
+    model = UNet(in_channels=3, n_classes=n_cls, n_channels=48).to(device)
+    checkpoint = torch.load(args.checkpoint)
+    model.load_state_dict(checkpoint, strict=False)
     model.eval()
 
     # ****************
@@ -69,37 +89,59 @@ if __name__ == '__main__':
     # ****************
     # Convert from plt 0-1 RGBA colors to 0-255 BGR colors for opencv.
     cmap = plt.get_cmap('rainbow')
-    colors = [cmap(i) for i in np.linspace(0, 1, len(test_dataset.cat_name) + 2)]
+    colors = [cmap(i) for i in np.linspace(0, 1, n_cls + 2)]
     colors = [(c[2] * 255, c[1] * 255, c[0] * 255) for c in colors]
 
-    pbar = tqdm(enumerate(data_generator), total=len(data_generator), desc='Eval ')
-    for step, (images, masks, images_bgr) in pbar:
+    cnt = 0
+    stp, sfp, recall, precision = 0, 0, 0, 0
+    score_dict, correct_dict = dict(), dict()
+    for cls in test_dataset.cat_name:
+        score_dict[cls] = []
+        correct_dict[cls] = []
+
+    s = ('%12s' + '%40s' + '%12s' * 8) % ('No', 'DataID', 'TP', 'TN', 'FP', 'FN', 'sTP', 'sFP', 'P', 'R')
+    print()
+    print(s)
+
+    pbar = tqdm(enumerate(data_generator), total=len(data_generator))
+    for step, (images, masks, images_bgr, data_ids) in pbar:
         images = images.to(device, dtype=torch.float)
         masks = masks.to(device, dtype=torch.float)
-        B = images.shape[0]
+        B, C, H, W = images.shape
+        with torch.no_grad():
+            y_pred = model(images)
 
-        y_pred = model(images)
+        iou_thrs = 0.50
+        _score = iou_coef(masks, y_pred).cpu().numpy()
 
-        # calculate iou
-        for iou_thrs in [0.50, 0.75, 0.95]:
-            iou = iou_coef(masks, y_pred)
-            iou_score = (iou > iou_thrs).to(torch.float32).mean(dim=(1,0)).cpu().detach().numpy()
-            score[f'iou:{iou_thrs:.2f}'].append(float(iou_score))
+        # calculate mAP with class
+        for b in range(B):
+            for cls, io in enumerate(_score[b] >= iou_thrs):
+                score[test_dataset.cat_name[cls]].append(io)
+
+        for b in range(B):
+            tp = _score[b] >= iou_thrs
+            tn = 0.0
+            fp = 0.0
+            fn = _score[b] < iou_thrs
+            _precision = tp / (tp + fp + 0.001)
+            _recall = tp / (tp + fn + 0.001)
+            for i in range(n_cls):
+                correct_dict[test_dataset.cat_name[i]].extend(tp.tolist())
+                score_dict[test_dataset.cat_name[i]].extend(_score[b].tolist())
+
+            sfp += fp
+            stp += sum(tp)
+            precision = round(precision + sum(_precision), 2)
+            recall = round(recall + sum(_recall), 2)
+            pbar.set_description(
+                 ('%12s' + '%40s' + '%12s' * 8) % (cnt, data_ids[b], sum(tp), tn, fp, sum(fn), stp, sfp, precision, recall))
+            cnt += 1
 
         # ****************
         # 4. Visualization (with first batch)
         # ****************
-        def apply_mask(image, mask, color, alpha=0.5):
-            """Apply the given mask to the image.
-            """
-            for c in range(3):
-                image[:, :, c] = np.where(mask == 1,
-                                          image[:, :, c] *
-                                          (1 - alpha) + alpha * color[c],
-                                          image[:, :, c])
-            return image
-
-        if step % 10:
+        if args.is_vis:
             for b in range(B):
                 gt_img = copy.deepcopy(images_bgr[b]).cpu().numpy()
                 vis_gt_msk = masks[b].detach().cpu().numpy()
@@ -114,8 +156,34 @@ if __name__ == '__main__':
                 for cat, pred_mask in enumerate(vis_pred_result):
                     pred_img = apply_mask(pred_img, pred_mask, color=colors[cat])
                 cv2.imwrite(f'{cfg.vis_dir}/{step}_{b}_pred.jpg', pred_img)
+
     # ****************
     # 3. Print result
     # ****************
+    score['All'] = np.array(list(score.values())).mean()
+    s2 = ('%15s' * 2) % ('Class', 'mAP@.5')
+    print()
+    print(s2)
     for k, v in score.items():
-        print(k, ': ', np.mean(v))
+        print(('%15s' * 2) % (k, np.round(np.mean(v), 2)))
+    score.pop('All')
+    # save graph
+    fig, ax = plt.subplots()
+    for k, v in score.items():
+        precision, recall, thresholds = precision_recall_curve(correct_dict[k], score_dict[k])
+        # create precision recall curve
+        ax.plot(recall, precision, label=k)
+
+    # add axis labels to plot
+    ax.set_title('Precision-Recall Curve')
+    ax.set_ylabel('Precision')
+    ax.set_xlabel('Recall')
+    ax.legend()
+    ax.axis([0,1,0,1])
+
+    # display plot
+    plt.savefig(f'../data/PR_curve_{tag}_seg.png')
+
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+    print('End evaluation. ', dt_string)

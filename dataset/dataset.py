@@ -67,7 +67,7 @@ class CTDataset(Dataset):
         data = copy.deepcopy(self.db[index])
         extension = data['image_path'].split('.')[-1]
         img, img_bgr = self.load_img(data['image_path'], colorspace=self.color_space, extension=extension)
-
+        data_id = os.path.basename(data['image_path']).replace('.dcm', '')
         mask = self.load_mask(data['anno'], data['height'], data['width'], self.rle)
         if self.transforms:
             transformed_data = self.transforms(image=img, mask=mask)
@@ -78,7 +78,7 @@ class CTDataset(Dataset):
 
         img = np.transpose(img, (2, 0, 1))
         mask = np.transpose(mask, (2, 0, 1))
-        return torch.tensor(img), torch.tensor(mask), torch.tensor(img_bgr)
+        return torch.tensor(img), torch.tensor(mask), torch.tensor(img_bgr), data_id
 
         # else:
         #     if self.transforms:

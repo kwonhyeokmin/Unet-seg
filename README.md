@@ -49,14 +49,14 @@ python3 data_split_segmentation.py --data_tag [AXL or COR or SAG]
 ```
 
 ### Train
-In the root folder, please run
+In the root folder, please run like bellow. If you want to track with wandb, add use_wandb option.
 ```shell
-# example: python3 train.py --dataset nia --cfg configs/config.yaml --gpus 0,1,2,3 --data_tag COR
+# example: python3 train.py --dataset nia --cfg configs/config.yaml --gpus 0,1,2,3 --data_tag COR --use_wandb
 python3 train.py --dataset [DATASET_NAME] --cfg [CONFIG_FILE_PATH] --gpus [GPU_IDS] --data_tag [AXL or COR or SAG]
 ```
 
 ### Evaluate
 ```shell
 # example: python3 eval.py --checkpoint output/model_dump/snapshot_AXL_150.pt --dataset nia --data_tag AXL
-python3 eval.py --checkpoint [MODEL_FILE_PATH] --dataset [DATASET_NAME] --data_tag [AXL or COR or SAG]
+python3 eval.py --checkpoint [MODEL_FILE_PATH] --dataset [DATASET_NAME] --data_tag [AXL or COR or SAG] --is_vis [Visual Flag]
 ```
